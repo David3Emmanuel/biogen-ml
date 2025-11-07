@@ -34,6 +34,35 @@ def test_image_cnn():
     assert output_tensor.shape == (batch_size, output_dim), "Output shape mismatch"
     print("ImageCNN test passed!")
 
+def test_fused_model():
+    from models.fused import FusedModel
+    from models.tabular import TabularMLP
+    from models.image import ImageCNN
+
+    batch_size = 4
+    tabular_input_dim = 10
+    image_channels = 3
+    image_height = 224
+    image_width = 224
+    
+    image_feature_dim = 128
+    tabular_feature_dim = 64
+
+    tabular_input = torch.randn(batch_size, tabular_input_dim)
+    image_input = torch.randn(batch_size, image_channels, image_height, image_width)
+
+    fused_model = FusedModel(
+        num_tabular_features=tabular_input_dim,
+        img_feature_dim=image_feature_dim,
+        tab_feature_dim=tabular_feature_dim
+    )
+
+    output_tensor = fused_model(image_input, tabular_input)
+
+    assert output_tensor.shape == (batch_size, 2), "Output shape mismatch"
+    print("FusedModel test passed!")
+
 if __name__ == "__main__":
     test_tabular_mlp()
     test_image_cnn()
+    test_fused_model()
