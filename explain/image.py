@@ -37,8 +37,6 @@ def explain_with_image(model: FusedModel, image_tensor: torch.Tensor, target_out
     grayscale_cam = grayscale_cam[0, :]
     
     # Visualize the heatmap
-    # 'rgb_img' should be a 0-1 normalized numpy-array version of the input image
-    # visualization = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
     
     rgb_img = image_tensor.squeeze().permute(1, 2, 0).cpu().numpy()
     rgb_img = (rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min())

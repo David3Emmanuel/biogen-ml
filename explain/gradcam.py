@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 class GradCamModelWrapper(nn.Module):
@@ -22,7 +23,7 @@ class ClassifierOutputTarget(nn.Module):
     """
     def __init__(self, output_index):
         self.output_index = output_index
-    def __call__(self, model_output):
+    def __call__(self, model_output: torch.Tensor):
         # model_output shape is (batch_size, 2)
         # This returns the specific logit we want to explain.
         if len(model_output.shape) == 1:
