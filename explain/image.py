@@ -6,7 +6,7 @@ from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
 
 from models import FusedModel
-from .gradcam import GradCamModelWrapper, RegressionOutputTarget
+from .gradcam import GradCamModelWrapper, ClassifierOutputTarget
 
 def explain_with_image(model: FusedModel, image_tensor: torch.Tensor, target_output_index: int):
     """
@@ -31,7 +31,7 @@ def explain_with_image(model: FusedModel, image_tensor: torch.Tensor, target_out
     target_layer = [wrapped_model.model.image_branch.model.layer4[-1]]
     
     cam = GradCAM(model=wrapped_model, target_layers=target_layer)
-    targets: List[nn.Module] = [RegressionOutputTarget(output_index=target_output_index)]
+    targets: List[nn.Module] = [ClassifierOutputTarget(output_index=target_output_index)]
     
     grayscale_cam = cam(input_tensor=image_tensor, targets=targets)
     grayscale_cam = grayscale_cam[0, :]

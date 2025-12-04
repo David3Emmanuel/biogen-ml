@@ -13,7 +13,7 @@ class GradCamModelWrapper(nn.Module):
     def forward(self, image_tensor):
         return self.model(image_tensor, self.dummy_tabular)
 
-class RegressionOutputTarget(nn.Module):
+class ClassifierOutputTarget(nn.Module):
     """
     A custom target class for grad-cam to explain
     a specific regression output neuron.
@@ -28,4 +28,3 @@ class RegressionOutputTarget(nn.Module):
         if len(model_output.shape) == 1:
             return model_output[self.output_index]
         return model_output[:, self.output_index]
-
