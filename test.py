@@ -36,8 +36,6 @@ def test_image_cnn():
 
 def test_fused_model():
     from models.fused import FusedModel
-    from models.tabular import TabularMLP
-    from models.image import ImageCNN
 
     batch_size = 4
     tabular_input_dim = 10
