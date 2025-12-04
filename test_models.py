@@ -1,7 +1,7 @@
 import torch
 
 def test_tabular_mlp():
-    from models.tabular import TabularMLP
+    from models import TabularMLP
     
     batch_size = 16
     input_dim = 10
@@ -17,7 +17,7 @@ def test_tabular_mlp():
     print("TabularMLP test passed!")
 
 def test_image_cnn():
-    from models.image import ImageCNN
+    from models import ImageCNN
     
     batch_size = 8
     channels = 3
@@ -35,7 +35,7 @@ def test_image_cnn():
     print("ImageCNN test passed!")
 
 def test_fused_model():
-    from models.fused import FusedModel
+    from models import FusedModel
 
     batch_size = 4
     tabular_input_dim = 10

@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from models.tabular import TabularMLP
-from models.image import ImageCNN
+from .tabular import TabularMLP
+from .image import ImageCNN
 
 
 class FusedModel(nn.Module):
