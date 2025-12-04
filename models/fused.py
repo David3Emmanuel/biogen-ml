@@ -8,7 +8,12 @@ from .image import ImageCNN
 class FusedModel(nn.Module):
     def __init__(self, num_tabular_features, img_feature_dim=128, tab_feature_dim=64):
         super().__init__()
+
+        self.num_tabular_features = num_tabular_features
+        self.img_feature_dim = img_feature_dim
+        self.tab_feature_dim = tab_feature_dim
         
+
         # 1. Image Branch (pre-trained ResNet-18)
         self.image_branch = ImageCNN(output_dim=img_feature_dim)
         self.image_branch.eval() 
