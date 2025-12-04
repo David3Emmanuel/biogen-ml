@@ -34,8 +34,9 @@ class FusedModel(nn.Module):
         )
             
     def forward(self, image_tensor, tabular_tensor):
-        with torch.no_grad():
-            image_features = self.image_branch(image_tensor)        
+        # Did not use with torch.no_grad
+        # gradients are needed for Grad-CAM
+        image_features = self.image_branch(image_tensor)        
         tabular_features = self.tabular_branch(tabular_tensor)
         
         # Shape: (Batch_Size, img_feature_dim + tab_feature_dim)

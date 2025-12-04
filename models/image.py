@@ -12,9 +12,8 @@ class ImageCNN(nn.Module):
         # Load pre-trained ResNet-18
         self.model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
         
-        # Freeze all parameters in the model
-        for param in self.model.parameters():
-            param.requires_grad = False
+        # Did not freeze parameters
+        # gradients are needed for Grad-CAM
             
         # Replace the final layer with a new linear layer
         num_features = self.model.fc.in_features
