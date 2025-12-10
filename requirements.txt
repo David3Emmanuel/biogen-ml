@@ -1,0 +1,9 @@
+torch>=2.0.0
+torchvision>=0.15.0
+pytorch-grad-cam
+matplotlib
+fastapi
+uvicorn[standard]
+pillow
+python-multipart
+httpx
