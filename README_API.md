@@ -46,6 +46,32 @@ Generate Grad-CAM explanation for the image.
 
 - **Response**: JSON with grayscale CAM and base64-encoded visualization
 
+### POST /train
+Perform a single training step on the model.
+
+- **Parameters**:
+  - `image`: Image file (JPEG/PNG)
+  - `tabular`: JSON string of tabular features (list of floats)
+  - `targets`: JSON string of target labels (list of 2 floats, e.g., [0.8, 0.2])
+
+- **Response**: JSON with loss, predictions, and targets
+
+### POST /save_model
+Save the current model state.
+
+- **Parameters**:
+  - `filepath`: String path to save the model (default: "model_checkpoint.pth")
+
+- **Response**: Success message
+
+### POST /load_model
+Load a saved model state.
+
+- **Parameters**:
+  - `filepath`: String path to the saved model file (default: "model_checkpoint.pth")
+
+- **Response**: Success message
+
 ### GET /health
 Health check endpoint.
 
@@ -55,6 +81,9 @@ Currently, `NUM_TABULAR_FEATURES` is hardcoded to 10. Update this in `api/main.p
 
 ## Notes
 
-- The model is loaded globally on first request.
+- The model is loaded globally on first request, with Adam optimizer and BCEWithLogitsLoss initialized for training.
 - Images are resized to 224x224 and normalized for ResNet-18.
-- In production, consider using a proper model registry and async handling.
+- Tabular data expects a JSON array of floats matching `NUM_TABULAR_FEATURES` (currently 10).
+- Training performs a single gradient descent step per request.
+- Model can be saved/loaded for persistence.
+- In production, consider using a proper model registry, database for training data, authentication, and async handling.
