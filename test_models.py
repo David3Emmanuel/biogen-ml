@@ -5,7 +5,7 @@ def test_tabular_mlp():
     
     batch_size = 16
     input_dim = 10
-    output_dim = 5
+    output_dim = 2  # Now defaults to 2 for late fusion
 
     input_tensor = torch.randn(batch_size, input_dim)
 
@@ -23,7 +23,7 @@ def test_image_cnn():
     channels = 3
     height = 224
     width = 224
-    output_dim = 128
+    output_dim = 2  # Now defaults to 2 for late fusion
 
     input_tensor = torch.randn(batch_size, channels, height, width)
 
@@ -42,17 +42,12 @@ def test_fused_model():
     image_channels = 3
     image_height = 224
     image_width = 224
-    
-    image_feature_dim = 128
-    tabular_feature_dim = 64
 
     tabular_input = torch.randn(batch_size, tabular_input_dim)
     image_input = torch.randn(batch_size, image_channels, image_height, image_width)
 
     fused_model = FusedModel(
-        num_tabular_features=tabular_input_dim,
-        img_feature_dim=image_feature_dim,
-        tab_feature_dim=tabular_feature_dim
+        num_tabular_features=tabular_input_dim
     )
 
     output_tensor = fused_model(image_input, tabular_input)

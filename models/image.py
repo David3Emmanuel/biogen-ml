@@ -3,10 +3,10 @@ import torchvision.models as models
 
 class ImageCNN(nn.Module):
     """
-    A pre-trained ResNet-18 based feature extractor for image data.
-    The final classification head is replaced to output feature vectors.
+    A pre-trained ResNet-18 based model for image data.
+    Outputs predictions directly for late fusion.
     """
-    def __init__(self, output_dim=128):
+    def __init__(self, output_dim=2):
         super().__init__()
         
         # Load pre-trained ResNet-18
@@ -15,9 +15,14 @@ class ImageCNN(nn.Module):
         # Did not freeze parameters
         # gradients are needed for Grad-CAM
             
-        # Replace the final layer with a new linear layer
+        # Replace the final layer to output predictions
+        # output_dim should be 2 for 1-year and 3-year risk predictions
         num_features = self.model.fc.in_features
-        self.model.fc = nn.Linear(num_features, output_dim)
+        self.model.fc = nn.Sequential(
+            nn.Linear(num_features, 128),
+            nn.ReLU(),
+            nn.Linear(128, output_dim)
+        )
     
     def forward(self, x):
         """
