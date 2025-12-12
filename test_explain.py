@@ -176,11 +176,14 @@ def test_explain_combined():
         "Heart_Rate", "Exercise_Hours", "Sleep_Hours", "Stress_Level", "Diet_Score"
     ]
     
-    # Test combined explanation for both output indices
+    # Store explanations for both outputs
+    explanations = {}
+    
+    # Generate explanations for both output indices
     for target_output_index in [0, 1]:
         output_label = "1-year" if target_output_index == 0 else "3-year"
         print(f"\n{'='*60}")
-        print(f"Combined explanations for {output_label} risk prediction...")
+        print(f"Generating explanations for {output_label} risk prediction...")
         print(f"{'='*60}")
         
         # 1. Image Explainability (Grad-CAM)
@@ -214,9 +217,6 @@ def test_explain_combined():
         elapsed = time.time() - start_time
         print(f"✓ SHAP completed in {elapsed:.2f} seconds")
         
-        # 3. Create combined visualization
-        print(f"\n3. Creating combined visualization ({output_label} risk)...")
-        
         # Generate SHAP waterfall plot separately
         plot_shap_waterfall(
             explainer=explainer,
@@ -228,43 +228,15 @@ def test_explain_combined():
             show=False
         )
         
-        # Create combined figure
-        fig = plt.figure(figsize=(20, 6))
+        # Store explanation data
+        explanations[output_label] = {
+            'visualization': visualization,
+            'tabular_shap_values': tabular_shap_values,
+            'explainer': explainer
+        }
         
-        # Original image
-        ax1 = plt.subplot(1, 3, 1)
-        original_img = test_image[0].permute(1, 2, 0).detach().cpu().numpy()
-        original_img = (original_img - original_img.min()) / (original_img.max() - original_img.min())
-        plt.imshow(original_img)
-        plt.title(f'Original Medical Image\n({output_label} Risk)', fontsize=12, fontweight='bold')
-        plt.axis('off')
-        
-        # Grad-CAM visualization
-        ax2 = plt.subplot(1, 3, 2)
-        plt.imshow(visualization)
-        plt.title(f'Grad-CAM Explanation\n(Image Contribution)', fontsize=12, fontweight='bold')
-        plt.axis('off')
-        
-        # Load and display SHAP waterfall plot
-        ax3 = plt.subplot(1, 3, 3)
-        if os.path.exists(f'temp_shap_waterfall_{output_label}.png'):
-            shap_img = plt.imread(f'temp_shap_waterfall_{output_label}.png')
-            plt.imshow(shap_img)
-            plt.axis('off')
-            plt.title(f'SHAP Explanation\n(Tabular Feature Contributions)', fontsize=12, fontweight='bold')
-        
-        plt.tight_layout()
-        save_path = f'combined_explanation_{output_label}_risk.png'
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        print(f"✓ Saved combined visualization to {save_path}")
-        plt.close()
-        
-        # Clean up temporary file
-        if os.path.exists(f'temp_shap_waterfall_{output_label}.png'):
-            os.remove(f'temp_shap_waterfall_{output_label}.png')
-        
-        # 4. Print model prediction with explanations
-        print(f"\n4. Model Prediction Summary ({output_label} risk):")
+        # Print model prediction with explanations
+        print(f"\n3. Model Prediction Summary ({output_label} risk):")
         with torch.no_grad():
             # Get model prediction
             prediction = model(test_image, test_tabular.unsqueeze(0))
@@ -284,6 +256,71 @@ def test_explain_combined():
             feature_val = test_tabular[idx].item()
             impact = "increases" if shap_val > 0 else "decreases"
             print(f"   {i}. {feature_name}: {feature_val:.3f} (SHAP: {shap_val:+.4f}, {impact} risk)")
+    
+    # Create combined 2x3 visualization
+    print(f"\n{'='*60}")
+    print("Creating combined 2x3 visualization...")
+    print(f"{'='*60}")
+    
+    fig = plt.figure(figsize=(20, 12))
+    
+    # Prepare original image once
+    original_img = test_image[0].permute(1, 2, 0).detach().cpu().numpy()
+    original_img = (original_img - original_img.min()) / (original_img.max() - original_img.min())
+    
+    # Row 1: 1-year risk
+    # Original image
+    ax1 = plt.subplot(2, 3, 1)
+    plt.imshow(original_img)
+    plt.title('Original Medical Image\n(1-year Risk)', fontsize=12, fontweight='bold')
+    plt.axis('off')
+    
+    # Grad-CAM visualization
+    ax2 = plt.subplot(2, 3, 2)
+    plt.imshow(explanations['1-year']['visualization'])
+    plt.title('Grad-CAM Explanation\n(Image Contribution)', fontsize=12, fontweight='bold')
+    plt.axis('off')
+    
+    # SHAP waterfall plot
+    ax3 = plt.subplot(2, 3, 3)
+    if os.path.exists('temp_shap_waterfall_1-year.png'):
+        shap_img = plt.imread('temp_shap_waterfall_1-year.png')
+        plt.imshow(shap_img)
+        plt.axis('off')
+        plt.title('SHAP Explanation\n(Tabular Features)', fontsize=12, fontweight='bold')
+    
+    # Row 2: 3-year risk
+    # Original image
+    ax4 = plt.subplot(2, 3, 4)
+    plt.imshow(original_img)
+    plt.title('Original Medical Image\n(3-year Risk)', fontsize=12, fontweight='bold')
+    plt.axis('off')
+    
+    # Grad-CAM visualization
+    ax5 = plt.subplot(2, 3, 5)
+    plt.imshow(explanations['3-year']['visualization'])
+    plt.title('Grad-CAM Explanation\n(Image Contribution)', fontsize=12, fontweight='bold')
+    plt.axis('off')
+    
+    # SHAP waterfall plot
+    ax6 = plt.subplot(2, 3, 6)
+    if os.path.exists('temp_shap_waterfall_3-year.png'):
+        shap_img = plt.imread('temp_shap_waterfall_3-year.png')
+        plt.imshow(shap_img)
+        plt.axis('off')
+        plt.title('SHAP Explanation\n(Tabular Features)', fontsize=12, fontweight='bold')
+    
+    plt.tight_layout()
+    save_path = 'combined_explanation_both_risks.png'
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    print(f"✓ Saved combined 2x3 visualization to {save_path}")
+    plt.close()
+    
+    # Clean up temporary files
+    for output_label in ['1-year', '3-year']:
+        temp_file = f'temp_shap_waterfall_{output_label}.png'
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
         
     print(f"\n{'='*60}")
     print("Combined explainability test completed successfully!")
