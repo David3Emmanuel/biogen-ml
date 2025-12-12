@@ -49,6 +49,10 @@ def explain_with_shap(
     
     test_tabular = test_tabular.to(device)
     
+    # Ensure test_tabular has batch dimension
+    if test_tabular.ndim == 1:
+        test_tabular = test_tabular.unsqueeze(0)  # Add batch dimension
+    
     # Create wrapper that fixes image input
     class TabularOnlyWrapper:
         def __init__(self, model, images, target_idx):
@@ -118,6 +122,10 @@ def plot_shap_force(
     else:
         test_tabular_np = test_tabular
     
+    # Ensure test_tabular_np has batch dimension
+    if test_tabular_np.ndim == 1:
+        test_tabular_np = test_tabular_np.reshape(1, -1)
+    
     # Generate default feature names if not provided
     if tabular_feature_names is None:
         num_features = tabular_shap_values.shape[1]
@@ -180,6 +188,10 @@ def plot_shap_waterfall(
         test_tabular_np = test_tabular.detach().cpu().numpy()
     else:
         test_tabular_np = test_tabular
+    
+    # Ensure test_tabular_np has batch dimension
+    if test_tabular_np.ndim == 1:
+        test_tabular_np = test_tabular_np.reshape(1, -1)
     
     # Generate default feature names if not provided
     if tabular_feature_names is None:

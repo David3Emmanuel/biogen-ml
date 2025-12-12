@@ -24,7 +24,7 @@ def test_explain_with_tabular():
     # Generate test data
     print("Generating test data...")
     test_image = torch.randn(3, 224, 224)
-    test_tabular = torch.randn(1, num_tabular_features)
+    test_tabular = torch.randn(num_tabular_features)
     
     # Define feature names for better visualization
     tabular_feature_names = [
@@ -59,7 +59,7 @@ def test_explain_with_tabular():
         
         
         # Waterfall plot for the first patient
-        print(f"Generating SHAP waterfall plot for patient 0 ({output_label} risk)...")
+        print(f"Generating SHAP waterfall plot for patient ({output_label} risk)...")
         plot_shap_waterfall(
             explainer=explainer,
             tabular_shap_values=tabular_shap_values,
