@@ -257,63 +257,57 @@ def test_explain_combined():
             impact = "increases" if shap_val > 0 else "decreases"
             print(f"   {i}. {feature_name}: {feature_val:.3f} (SHAP: {shap_val:+.4f}, {impact} risk)")
     
-    # Create combined 2x3 visualization
+    # Create combined 3-row visualization
     print(f"\n{'='*60}")
-    print("Creating combined 2x3 visualization...")
+    print("Creating combined visualization (3 rows: original, 1-year, 3-year)...")
     print(f"{'='*60}")
     
-    fig = plt.figure(figsize=(20, 12))
+    fig = plt.figure(figsize=(16, 15))
     
     # Prepare original image once
     original_img = test_image[0].permute(1, 2, 0).detach().cpu().numpy()
     original_img = (original_img - original_img.min()) / (original_img.max() - original_img.min())
     
-    # Row 1: 1-year risk
-    # Original image
-    ax1 = plt.subplot(2, 3, 1)
+    # Row 1: Original image (centered, spanning 2 columns)
+    ax1 = plt.subplot(3, 2, (1, 2))
     plt.imshow(original_img)
-    plt.title('Original Medical Image\n(1-year Risk)', fontsize=12, fontweight='bold')
+    plt.title('Original Medical Image', fontsize=14, fontweight='bold', pad=20)
     plt.axis('off')
     
+    # Row 2: 1-year risk explanations
     # Grad-CAM visualization
-    ax2 = plt.subplot(2, 3, 2)
+    ax2 = plt.subplot(3, 2, 3)
     plt.imshow(explanations['1-year']['visualization'])
-    plt.title('Grad-CAM Explanation\n(Image Contribution)', fontsize=12, fontweight='bold')
+    plt.title('1-Year Risk\nGrad-CAM (Image Contribution)', fontsize=12, fontweight='bold')
     plt.axis('off')
     
     # SHAP waterfall plot
-    ax3 = plt.subplot(2, 3, 3)
+    ax3 = plt.subplot(3, 2, 4)
     if os.path.exists('temp_shap_waterfall_1-year.png'):
         shap_img = plt.imread('temp_shap_waterfall_1-year.png')
         plt.imshow(shap_img)
         plt.axis('off')
-        plt.title('SHAP Explanation\n(Tabular Features)', fontsize=12, fontweight='bold')
+        plt.title('1-Year Risk\nSHAP (Tabular Features)', fontsize=12, fontweight='bold')
     
-    # Row 2: 3-year risk
-    # Original image
-    ax4 = plt.subplot(2, 3, 4)
-    plt.imshow(original_img)
-    plt.title('Original Medical Image\n(3-year Risk)', fontsize=12, fontweight='bold')
-    plt.axis('off')
-    
+    # Row 3: 3-year risk explanations
     # Grad-CAM visualization
-    ax5 = plt.subplot(2, 3, 5)
+    ax4 = plt.subplot(3, 2, 5)
     plt.imshow(explanations['3-year']['visualization'])
-    plt.title('Grad-CAM Explanation\n(Image Contribution)', fontsize=12, fontweight='bold')
+    plt.title('3-Year Risk\nGrad-CAM (Image Contribution)', fontsize=12, fontweight='bold')
     plt.axis('off')
     
     # SHAP waterfall plot
-    ax6 = plt.subplot(2, 3, 6)
+    ax5 = plt.subplot(3, 2, 6)
     if os.path.exists('temp_shap_waterfall_3-year.png'):
         shap_img = plt.imread('temp_shap_waterfall_3-year.png')
         plt.imshow(shap_img)
         plt.axis('off')
-        plt.title('SHAP Explanation\n(Tabular Features)', fontsize=12, fontweight='bold')
+        plt.title('3-Year Risk\nSHAP (Tabular Features)', fontsize=12, fontweight='bold')
     
     plt.tight_layout()
     save_path = 'combined_explanation_both_risks.png'
     plt.savefig(save_path, dpi=150, bbox_inches='tight')
-    print(f"✓ Saved combined 2x3 visualization to {save_path}")
+    print(f"✓ Saved combined visualization to {save_path}")
     plt.close()
     
     # Clean up temporary files
