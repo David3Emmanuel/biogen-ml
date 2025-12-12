@@ -16,7 +16,7 @@ def test_explain_with_tabular():
     
     # Create a sample fused model
     num_tabular_features = 10
-    model = FusedModel(num_tabular_features=num_tabular_features)
+    model = FusedModel('breast', num_tabular_features=num_tabular_features)
     model.eval()
     
     # Generate background data for SHAP (will be subsampled automatically)
