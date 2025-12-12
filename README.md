@@ -5,6 +5,7 @@ A multimodal machine learning project for risk prediction using image and tabula
 ## Overview
 
 This project implements a fused neural network that combines:
+
 - **Image data**: Processed through a pre-trained ResNet-18 CNN
 - **Tabular data**: Processed through a custom MLP
 - **Fusion**: Combined predictions for 1-year and 3-year risk assessment
@@ -98,6 +99,33 @@ grayscale_cam, visualization = explain_with_image(
 - `GET /health`: Health check
 
 See `README_API.md` for detailed API documentation.
+
+## Command-Line Interface
+
+Run inference and generate explanations for a single image:
+
+```bash
+# Basic usage with default breast cancer model
+python main.py path/to/image.jpg
+
+# Specify cancer type
+python main.py path/to/image.png --cancer-type cervical
+
+# Custom output directory
+python main.py path/to/image.bmp --output-dir results/
+
+# With custom SHAP parameters for faster/more accurate explanations
+python main.py path/to/image.jpeg --max-bg-samples 20 --nsamples 100
+```
+
+**Note**: The script synthesizes tabular features with reasonable defaults when real patient data is not available.
+
+**Output**:
+
+- Combined explanation visualization
+- Individual Grad-CAM heatmaps for 1-year and 3-year risk
+- SHAP waterfall plots showing feature importance
+- Detailed prediction results and risk probabilities
 
 ## Dependencies
 
