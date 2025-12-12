@@ -2,26 +2,24 @@ import torch
 import torch.nn as nn
 
 from .tabular import TabularMLP
-from .image import ImageCNN
+from .image_wrapper import SpecializedImageWrapper
 
 
 class FusedModel(nn.Module):
-    def __init__(self, num_tabular_features, fusion_weights=None):
+    def __init__(self, cancer_type, num_tabular_features, fusion_weights=None):
         super().__init__()
 
         self.num_tabular_features = num_tabular_features
         
         # 1. Image Branch (pre-trained ResNet-18)
         # Outputs 2 predictions directly
-        self.image_branch = ImageCNN(output_dim=2)
-        self.image_branch.eval() 
+        self.image_branch = SpecializedImageWrapper(cancer_type=cancer_type) 
         
         # 2. Tabular Branch (custom MLP)
         # Outputs 2 predictions directly
         self.tabular_branch = TabularMLP(input_dim=num_tabular_features, output_dim=2)
         
         # 3. Late Fusion: learnable weights for combining predictions
-        # If fusion_weights not provided, initialize with equal weights [0.5, 0.5]
         if fusion_weights is None:
             self.fusion_weights = nn.Parameter(torch.tensor([0.5, 0.5]))
         else:

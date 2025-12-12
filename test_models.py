@@ -47,6 +47,7 @@ def test_fused_model():
     image_input = torch.randn(batch_size, image_channels, image_height, image_width)
 
     fused_model = FusedModel(
+        cancer_type='breast',
         num_tabular_features=tabular_input_dim
     )
 
