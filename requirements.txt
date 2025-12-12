@@ -7,3 +7,4 @@ uvicorn[standard]
 pillow
 python-multipart
 httpx
+shap
