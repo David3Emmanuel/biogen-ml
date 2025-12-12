@@ -39,20 +39,37 @@ def explain_with_image(model: FusedModel, image_tensor: torch.Tensor, target_out
     
     assert target_output_index in [0, 1], "target_output_index must be 0 or 1"
     
+    # 1. Prepare Model
     model.eval()
-    dummy_tab = torch.randn(1, model.num_tabular_features)
+    
+    # 2. CRITICAL FIX: Enable gradients on the input tensor
+    # Even in eval mode, we need the input to require grad to build the graph
+    # because the model weights are likely frozen (YOLO behavior).
+    if not image_tensor.requires_grad:
+        image_tensor = image_tensor.detach().requires_grad_(True)
+        
+    # 3. Setup Wrapper
+    dummy_tab = torch.randn(1, model.num_tabular_features).to(image_tensor.device)
     wrapped_model = GradCamModelWrapper(model, dummy_tab)
+    
+    # 4. Define Target Layer
+    # Targeting the last convolutional block of the YOLO backbone (usually layer -2)
+    # The path is: FusedModel -> SpecializedImageWrapper -> CancerImageWrapper -> 
+    #              YOLO -> ClassificationModel -> Sequential -> Layer -2
     target_layer = [wrapped_model.model.image_branch.wrapper.backbone.model.model[-2]]
     
+    # 5. Initialize GradCAM
     cam = GradCAM(model=wrapped_model, target_layers=target_layer)
     targets = [ClassifierOutputTarget(category=target_output_index)]
     
+    # 6. Generate CAM
+    # This runs forward/backward passes. 
+    # Since image_tensor.requires_grad=True, the graph will be built.
     grayscale_cam = cam(input_tensor=image_tensor, targets=targets)
     grayscale_cam = grayscale_cam[0, :]
     
-    # Visualize the heatmap
-    
-    rgb_img = image_tensor.squeeze().permute(1, 2, 0).cpu().numpy()
+    # 7. Visualize
+    rgb_img = image_tensor.detach().squeeze().permute(1, 2, 0).cpu().numpy()
     rgb_img = (rgb_img - rgb_img.min()) / (rgb_img.max() - rgb_img.min())
     visualization = show_cam_on_image(rgb_img, grayscale_cam, use_rgb=True)
     

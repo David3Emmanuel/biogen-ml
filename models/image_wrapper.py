@@ -8,6 +8,7 @@ from ultralytics import YOLO
 class CancerImageWrapper(nn.Module):
     def __init__(self, model_path, cancer_type):
         super().__init__()
+        # Task must be 'classify' for this model structure
         self.backbone = YOLO(model_path, task='classify')
         self.cancer_type = cancer_type
         
@@ -22,7 +23,6 @@ class CancerImageWrapper(nn.Module):
         num_classes = len(model_names)
         
         # Initialize Matrix (Rows=Classes, Cols=TimeHorizons)
-        # Col 0 = 1-Year Risk, Col 1 = 3-Year Risk
         matrix = torch.zeros((num_classes, 2))
         
         print(f"--- Building Risk Matrix for {self.cancer_type} ---")
@@ -33,62 +33,53 @@ class CancerImageWrapper(nn.Module):
             
             if clean_name:
                 base_risk = risk_lookup[clean_name]
-                
-                # Apply Time Decay Factors (Scalar math happens ONCE during init)
                 r1 = base_risk * time_decay_factors['1yr']
                 r3 = base_risk * time_decay_factors['3yr']
-                
                 matrix[class_id, 0] = r1
                 matrix[class_id, 1] = r3
-                # print(f"ID {class_id} ({class_name}): [1yr: {r1:.2f}, 3yr: {r3:.2f}]")
             else:
-                print(f"⚠️ Warning: Class '{class_name}' not found in risk lookup. Defaulting to 0.0")
+                print(f"⚠️ Warning: Class '{class_name}' not found. Defaulting to 0.0")
 
-        # 3. Register as a fixed buffer (not a learnable parameter)
         self.risk_matrix = matrix
         
     def train(self, mode=True):
         """
-        Overrides the default PyTorch train method.
-        Bypasses the ultralytics YOLO object's custom .train() logic,
-        which erroneously attempts to initialize the Trainer/dataset by
-        avoiding the recursive call of super().train(mode).
+        Standard PyTorch train override.
+        Crucial: We must set the *inner* model to train/eval mode.
         """
-        # CRITICAL FIX: Do NOT call super().train(mode).
-        
-        # 1. Manually update the module's training state (standard nn.Module behavior)
         self.training = mode
-        
-        # 2. Set the internal PyTorch model within the YOLO object to the correct mode
-        # This is the actual PyTorch model used for inference, which supports standard train/eval.
         if mode:
             self.backbone.model.train() 
         else:
             self.backbone.model.eval()
-            
         return self
 
     def forward(self, x):
         """
-        Input: Image or Batch of Images
-        Output: Tensor of shape (Batch, 2) -> [[1yr, 3yr], ...]
+        Forward pass that preserves gradients for GradCAM.
         """
-        results = self.backbone(x, verbose=False)
+        # 1. DIRECT CALL to underlying PyTorch model.
+        # self.backbone(x) would detach gradients!
+        outputs = self.backbone.model(x)
         
-        if isinstance(results, list):
-            probs = torch.stack([r.probs.data for r in results]) 
-        else:
-            probs = results.probs.data.unsqueeze(0)
+        # Ultralytics models often return a tuple (predictions, features) or just predictions
+        if isinstance(outputs, (tuple, list)):
+            outputs = outputs[0]
             
-        # (Batch, N) @ (N, 2) -> (Batch, 2)
+        # 2. Handle Logits vs Probabilities
+        # The underlying model returns raw logits.
+        # We must manually apply softmax because we bypassed the inference wrapper.
+        probs = torch.softmax(outputs, dim=1)
+            
+        # 3. Apply Risk Matrix
         risk_logits = torch.matmul(probs, self.risk_matrix)
         
         return risk_logits
 
     def predict_clinical(self, x):
-        """Helper to return dictionary for demo"""
+        """Helper for demo/inference (no gradients needed here)"""
         with torch.no_grad():
-            logits = self.forward(x) # Shape (Batch, 2)
+            logits = self.forward(x)
             
             return [{
                 'type': self.cancer_type,
@@ -97,21 +88,16 @@ class CancerImageWrapper(nn.Module):
             } for i in range(logits.shape[0])]
 
 
-
 class HerlevWrapper(CancerImageWrapper):
     def __init__(self, model_path):
         super().__init__(model_path, cancer_type='cervical')
         
-        # Clinical Base Risks (Ostör et al.)
         lookup = {
             'carcinoma_in_situ': 1.00, 'severe_dysplastic': 0.40,
             'moderate_dysplastic': 0.15, 'light_dysplastic': 0.01,
             'normal_columnar': 0.00, 'normal_intermediate': 0.00, 'normal_superficiel': 0.00
         }
-        
-        # Time Factors (Cervical is slow)
         decay = {'1yr': 0.30, '3yr': 1.00}
-        
         self._build_risk_matrix(lookup, decay)
 
 
@@ -119,15 +105,11 @@ class INbreastWrapper(CancerImageWrapper):
     def __init__(self, model_path):
         super().__init__(model_path, cancer_type='breast')
         
-        # Clinical Base Risks (ACR BI-RADS)
         lookup = {
             'bi-rads_6': 1.00, 'bi-rads_5': 0.95, 'bi-rads_4': 0.40,
             'bi-rads_3': 0.02, 'bi-rads_2': 0.00, 'bi-rads_1': 0.00
         }
-        
-        # Time Factors (Breast risk is immediate)
         decay = {'1yr': 0.95, '3yr': 1.00}
-        
         self._build_risk_matrix(lookup, decay)
 
 

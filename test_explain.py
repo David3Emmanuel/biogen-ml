@@ -16,6 +16,7 @@ def test_explain_with_tabular():
     
     # Create a sample fused model
     num_tabular_features = 10
+    # CORRECT: cancer_type is provided
     model = FusedModel('breast', num_tabular_features=num_tabular_features)
     model.eval()
     
@@ -25,7 +26,7 @@ def test_explain_with_tabular():
     
     # Generate test data
     print("Generating test data...")
-    test_image = torch.randn(3, 224, 224)
+    test_image = torch.randn(1, 3, 224, 224)
     test_tabular = torch.randn(num_tabular_features)
     
     # Define feature names for better visualization
@@ -84,10 +85,12 @@ def test_explain_with_image():
     
     # Create a sample fused model
     num_tabular_features = 10
-    model = FusedModel(num_tabular_features=num_tabular_features)
+    # FIX: Added 'breast' as the cancer_type argument
+    model = FusedModel('breast', num_tabular_features=num_tabular_features)
     model.eval()
     
     # Generate test data
+    # Note: requires_grad will be handled inside explain_with_image
     image_tensor = torch.randn(1, 3, 224, 224)
     test_tabular = torch.randn(num_tabular_features)
     bg_tabular = torch.randn(100, num_tabular_features)
@@ -157,7 +160,8 @@ def test_explain_combined():
     
     # Create a sample fused model
     num_tabular_features = 10
-    model = FusedModel(num_tabular_features=num_tabular_features)
+    # FIX: Added 'breast' as the cancer_type argument
+    model = FusedModel('breast', num_tabular_features=num_tabular_features)
     model.eval()
     
     # Generate background data for SHAP
