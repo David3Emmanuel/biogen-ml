@@ -1,5 +1,195 @@
 import torch
 import matplotlib.pyplot as plt
+import time
+
+
+def test_explain_with_tabular_fast():
+    """Test the FAST version of SHAP explanations - recommended for quick results."""
+    from explain.tabular import (
+        explain_with_shap_fast,
+        plot_shap_summary,
+        plot_shap_force,
+        plot_shap_waterfall
+    )
+    from models import FusedModel
+    
+    # Create a sample fused model
+    num_tabular_features = 10
+    model = FusedModel(num_tabular_features=num_tabular_features)
+    model.eval()
+    
+    # Generate background data for SHAP (will be subsampled automatically)
+    print("Generating background data for SHAP...")
+    bg_tabular = torch.randn(100, num_tabular_features)
+    
+    # Generate test data (5 samples to explain)
+    print("Generating test data...")
+    test_images = torch.randn(5, 3, 224, 224)
+    test_tabular = torch.randn(5, num_tabular_features)
+    
+    # Define feature names for better visualization
+    tabular_feature_names = [
+        "Age", "BMI", "Blood_Pressure", "Glucose", "Cholesterol",
+        "Heart_Rate", "Exercise_Hours", "Sleep_Hours", "Stress_Level", "Diet_Score"
+    ]
+    
+    # Test explanation for both output indices (1-year and 3-year risk)
+    for target_output_index in [0, 1]:
+        output_label = "1-year" if target_output_index == 0 else "3-year"
+        print(f"\n{'='*60}")
+        print(f"FAST SHAP explanations for {output_label} risk prediction...")
+        print(f"{'='*60}")
+        
+        start_time = time.time()
+        
+        # Calculate SHAP values with FAST method
+        tabular_shap_values, explainer = explain_with_shap_fast(
+            model=model,
+            bg_tabular=bg_tabular,
+            test_images=test_images,
+            test_tabular=test_tabular,
+            target_output_index=target_output_index,
+            tabular_feature_names=tabular_feature_names,
+            max_bg_samples=10,  # Use only 10 background samples for speed
+            nsamples=50  # Use 50 SHAP samples (increase for more accuracy)
+        )
+        
+        elapsed = time.time() - start_time
+        print(f"\n✓ SHAP computation completed in {elapsed:.2f} seconds")
+        print(f"SHAP values shape: {tabular_shap_values.shape}")
+        
+        # 1. Generate global feature importance plot (summary plot)
+        print(f"\nGenerating SHAP summary plot for {output_label} risk...")
+        plot_shap_summary(
+            tabular_shap_values=tabular_shap_values,
+            test_tabular=test_tabular,
+            tabular_feature_names=tabular_feature_names,
+            save_path=f'shap_summary_{output_label}_risk_fast.png',
+            show=False
+        )
+        
+        # 2. Generate waterfall plot for the first patient
+        print(f"Generating SHAP waterfall plot for patient 0 ({output_label} risk)...")
+        plot_shap_waterfall(
+            explainer=explainer,
+            tabular_shap_values=tabular_shap_values,
+            test_tabular=test_tabular,
+            sample_index=0,
+            target_output_index=target_output_index,
+            tabular_feature_names=tabular_feature_names,
+            save_path=f'shap_waterfall_patient_0_{output_label}_risk_fast.png',
+            show=False
+        )
+        
+    print(f"\n{'='*60}")
+    print("All FAST explanations completed successfully!")
+    print(f"{'='*60}")
+
+
+def test_explain_with_tabular():
+    """Test the standard version - more accurate but slower."""
+    from explain.tabular import (
+        explain_with_shap,
+        plot_shap_summary,
+        plot_shap_force,
+        plot_shap_waterfall
+    )
+    from models import FusedModel
+    
+    # Create a sample fused model
+    num_tabular_features = 10
+    model = FusedModel(num_tabular_features=num_tabular_features)
+    model.eval()
+    
+    # Generate background data for SHAP
+    print("Generating background data for SHAP...")
+    bg_images = torch.randn(100, 3, 224, 224)
+    bg_tabular = torch.randn(100, num_tabular_features)
+    
+    # Generate test data (5 samples to explain)
+    print("Generating test data...")
+    test_images = torch.randn(5, 3, 224, 224)
+    test_tabular = torch.randn(5, num_tabular_features)
+    
+    # Define feature names for better visualization
+    tabular_feature_names = [
+        "Age", "BMI", "Blood_Pressure", "Glucose", "Cholesterol",
+        "Heart_Rate", "Exercise_Hours", "Sleep_Hours", "Stress_Level", "Diet_Score"
+    ]
+    
+    # Test explanation for both output indices (1-year and 3-year risk)
+    for target_output_index in [0, 1]:
+        output_label = "1-year" if target_output_index == 0 else "3-year"
+        print(f"\n{'='*60}")
+        print(f"Generating SHAP explanations for {output_label} risk prediction...")
+        print(f"{'='*60}")
+        
+        start_time = time.time()
+        
+        # Calculate SHAP values
+        tabular_shap_values, explainer = explain_with_shap(
+            model=model,
+            bg_images=bg_images,
+            bg_tabular=bg_tabular,
+            test_images=test_images,
+            test_tabular=test_tabular,
+            target_output_index=target_output_index,
+            tabular_feature_names=tabular_feature_names
+        )
+        
+        elapsed = time.time() - start_time
+        print(f"\n✓ SHAP computation completed in {elapsed:.2f} seconds")
+        print(f"SHAP values shape: {tabular_shap_values.shape}")
+        print(f"Expected shape: (5 samples, {num_tabular_features} features)")
+        
+        # 1. Generate global feature importance plot (summary plot)
+        print(f"\nGenerating SHAP summary plot for {output_label} risk...")
+        plot_shap_summary(
+            tabular_shap_values=tabular_shap_values,
+            test_tabular=test_tabular,
+            tabular_feature_names=tabular_feature_names,
+            save_path=f'shap_summary_{output_label}_risk.png',
+            show=False
+        )
+        
+        # 2. Generate waterfall plot for the first patient
+        print(f"Generating SHAP waterfall plot for patient 0 ({output_label} risk)...")
+        plot_shap_waterfall(
+            explainer=explainer,
+            tabular_shap_values=tabular_shap_values,
+            test_tabular=test_tabular,
+            sample_index=0,
+            target_output_index=target_output_index,
+            tabular_feature_names=tabular_feature_names,
+            save_path=f'shap_waterfall_patient_0_{output_label}_risk.png',
+            show=False
+        )
+        
+        # Print feature importance rankings
+        print(f"\nFeature importance ranking for {output_label} risk:")
+        print("-" * 60)
+        mean_abs_shap = abs(tabular_shap_values).mean(axis=0)
+        feature_importance = sorted(
+            zip(tabular_feature_names, mean_abs_shap),
+            key=lambda x: x[1],
+            reverse=True
+        )
+        for i, (feature_name, importance) in enumerate(feature_importance, 1):
+            print(f"{i:2d}. {feature_name:20s}: {importance:.4f}")
+    
+    print(f"\n{'='*60}")
+    print("Test completed successfully!")
+    print(f"{'='*60}")
+    print("\nGenerated files:")
+    print("  - shap_summary_1-year_risk.png")
+    print("  - shap_summary_3-year_risk.png")
+    print("  - shap_force_patient_0_1-year_risk.png")
+    print("  - shap_force_patient_0_3-year_risk.png")
+    print("  - shap_waterfall_patient_0_1-year_risk.png")
+    print("  - shap_waterfall_patient_0_3-year_risk.png")
+    print("  - shap_waterfall_patient_1_1-year_risk.png")
+    print("  - shap_waterfall_patient_1_3-year_risk.png")
+
 
 def test_explain_with_image():
     from explain import explain_with_image
@@ -60,4 +250,19 @@ def test_explain_with_image():
 
 
 if __name__ == "__main__":
-    test_explain_with_image()
+        print("Running explainability tests...")
+        print("\n" + "="*60)
+        print("TEST 1: FAST Tabular Explainability (SHAP) - RECOMMENDED")
+        print("="*60)
+        test_explain_with_tabular_fast()
+        
+        print("\n" + "="*60)
+        print("TEST 2: Image Explainability (Grad-CAM)")
+        print("="*60)
+        test_explain_with_image()
+        
+        # Uncomment below to test standard (slower) SHAP version
+        # print("\n" + "="*60)
+        # print("TEST 3: Standard Tabular Explainability (SHAP) - SLOWER")
+        # print("="*60)
+        # test_explain_with_tabular()
