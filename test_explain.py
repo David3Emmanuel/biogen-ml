@@ -7,7 +7,6 @@ def test_explain_with_tabular():
     """Test the Tabular Explainability (SHAP)"""
     from explain.tabular import (
         explain_with_shap,
-        plot_shap_summary,
         plot_shap_force,
         plot_shap_waterfall
     )
@@ -22,10 +21,10 @@ def test_explain_with_tabular():
     print("Generating background data for SHAP...")
     bg_tabular = torch.randn(100, num_tabular_features)
     
-    # Generate test data (5 samples to explain)
+    # Generate test data
     print("Generating test data...")
-    test_images = torch.randn(5, 3, 224, 224)
-    test_tabular = torch.randn(5, num_tabular_features)
+    test_image = torch.randn(3, 224, 224)
+    test_tabular = torch.randn(1, num_tabular_features)
     
     # Define feature names for better visualization
     tabular_feature_names = [
@@ -37,16 +36,16 @@ def test_explain_with_tabular():
     for target_output_index in [0, 1]:
         output_label = "1-year" if target_output_index == 0 else "3-year"
         print(f"\n{'='*60}")
-        print(f"FAST SHAP explanations for {output_label} risk prediction...")
+        print(f"SHAP explanations for {output_label} risk prediction...")
         print(f"{'='*60}")
         
         start_time = time.time()
         
-        # Calculate SHAP values with FAST method
+        # Calculate SHAP values
         tabular_shap_values, explainer = explain_with_shap(
             model=model,
             bg_tabular=bg_tabular,
-            test_images=test_images,
+            image_tensor=test_image,
             test_tabular=test_tabular,
             target_output_index=target_output_index,
             tabular_feature_names=tabular_feature_names,
@@ -58,31 +57,21 @@ def test_explain_with_tabular():
         print(f"\n✓ SHAP computation completed in {elapsed:.2f} seconds")
         print(f"SHAP values shape: {tabular_shap_values.shape}")
         
-        # 1. Generate global feature importance plot (summary plot)
-        print(f"\nGenerating SHAP summary plot for {output_label} risk...")
-        plot_shap_summary(
-            tabular_shap_values=tabular_shap_values,
-            test_tabular=test_tabular,
-            tabular_feature_names=tabular_feature_names,
-            save_path=f'shap_summary_{output_label}_risk_fast.png',
-            show=False
-        )
         
-        # 2. Generate waterfall plot for the first patient
+        # Waterfall plot for the first patient
         print(f"Generating SHAP waterfall plot for patient 0 ({output_label} risk)...")
         plot_shap_waterfall(
             explainer=explainer,
             tabular_shap_values=tabular_shap_values,
             test_tabular=test_tabular,
-            sample_index=0,
             target_output_index=target_output_index,
             tabular_feature_names=tabular_feature_names,
-            save_path=f'shap_waterfall_patient_0_{output_label}_risk_fast.png',
+            save_path=f'shap_waterfall_{output_label}_risk.png',
             show=False
         )
         
     print(f"\n{'='*60}")
-    print("All FAST explanations completed successfully!")
+    print("All SHAP explanations completed successfully!")
     print(f"{'='*60}")
 
 
