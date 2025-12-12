@@ -19,7 +19,6 @@ class CancerImageWrapper(nn.Module):
         Dynamically builds the (N, 2) matrix aligned with YOLO's specific class ID order.
         """
         model_names = self.backbone.names 
-        print(model_names)
         num_classes = len(model_names)
         
         # Initialize Matrix (Rows=Classes, Cols=TimeHorizons)
@@ -31,7 +30,6 @@ class CancerImageWrapper(nn.Module):
         for class_id, class_name in model_names.items():
             # Clean name matching
             clean_name = next((k for k in risk_lookup if k in class_name.lower()), None)
-            print(clean_name, class_name)
             
             if clean_name:
                 base_risk = risk_lookup[clean_name]
@@ -42,12 +40,33 @@ class CancerImageWrapper(nn.Module):
                 
                 matrix[class_id, 0] = r1
                 matrix[class_id, 1] = r3
-                print(f"ID {class_id} ({class_name}): [1yr: {r1:.2f}, 3yr: {r3:.2f}]")
+                # print(f"ID {class_id} ({class_name}): [1yr: {r1:.2f}, 3yr: {r3:.2f}]")
             else:
                 print(f"⚠️ Warning: Class '{class_name}' not found in risk lookup. Defaulting to 0.0")
 
         # 3. Register as a fixed buffer (not a learnable parameter)
         self.risk_matrix = matrix
+        
+    def train(self, mode=True):
+        """
+        Overrides the default PyTorch train method.
+        Bypasses the ultralytics YOLO object's custom .train() logic,
+        which erroneously attempts to initialize the Trainer/dataset by
+        avoiding the recursive call of super().train(mode).
+        """
+        # CRITICAL FIX: Do NOT call super().train(mode).
+        
+        # 1. Manually update the module's training state (standard nn.Module behavior)
+        self.training = mode
+        
+        # 2. Set the internal PyTorch model within the YOLO object to the correct mode
+        # This is the actual PyTorch model used for inference, which supports standard train/eval.
+        if mode:
+            self.backbone.model.train() 
+        else:
+            self.backbone.model.eval()
+            
+        return self
 
     def forward(self, x):
         """

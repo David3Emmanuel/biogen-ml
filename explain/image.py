@@ -42,7 +42,7 @@ def explain_with_image(model: FusedModel, image_tensor: torch.Tensor, target_out
     model.eval()
     dummy_tab = torch.randn(1, model.num_tabular_features)
     wrapped_model = GradCamModelWrapper(model, dummy_tab)
-    target_layer = [wrapped_model.model.image_branch.model.layer4[-1]]
+    target_layer = [wrapped_model.model.image_branch.wrapper.backbone.model.model[-2]]
     
     cam = GradCAM(model=wrapped_model, target_layers=target_layer)
     targets = [ClassifierOutputTarget(category=target_output_index)]
