@@ -6,12 +6,8 @@ import numpy as np
 
 
 def test_explain_with_tabular():
-    """Test the Tabular Explainability (SHAP)"""
-    from explain.tabular import (
-        explain_with_shap,
-        plot_shap_force,
-        plot_shap_waterfall
-    )
+    """Test the Tabular Explainability (SHAP) using fused module"""
+    from explain import explain_both_outputs, create_shap_waterfall_plots
     from models import FusedModel
     
     print("\n" + "="*60)
@@ -38,43 +34,39 @@ def test_explain_with_tabular():
         "Heart_Rate", "Exercise_Hours", "Sleep_Hours", "Stress_Level", "Diet_Score"
     ]
     
-    # Test explanation for both output indices (1-year and 3-year risk)
-    for target_output_index in [0, 1]:
-        output_label = "1-year" if target_output_index == 0 else "3-year"
-        print(f"\n{'='*60}")
-        print(f"SHAP explanations for {output_label} risk prediction...")
-        print(f"{'='*60}")
-        
-        start_time = time.time()
-        
-        # Calculate SHAP values
-        tabular_shap_values, explainer = explain_with_shap(
-            model=model,
-            bg_tabular=bg_tabular,
-            image_tensor=test_image,
-            test_tabular=test_tabular,
-            target_output_index=target_output_index,
-            tabular_feature_names=tabular_feature_names,
-            max_bg_samples=10,  # Use only 10 background samples for speed
-            nsamples=50  # Use 50 SHAP samples (increase for more accuracy)
-        )
-        
-        elapsed = time.time() - start_time
-        print(f"\n✓ SHAP computation completed in {elapsed:.2f} seconds")
-        print(f"SHAP values shape: {tabular_shap_values.shape}")
-        
-        
-        # Waterfall plot for the first patient
-        print(f"Generating SHAP waterfall plot for patient ({output_label} risk)...")
-        plot_shap_waterfall(
-            explainer=explainer,
-            tabular_shap_values=tabular_shap_values,
-            test_tabular=test_tabular,
-            target_output_index=target_output_index,
-            tabular_feature_names=tabular_feature_names,
-            save_path=f'shap_waterfall_{output_label}_risk.png',
-            show=False
-        )
+    print(f"\n{'='*60}")
+    print(f"Generating SHAP explanations for both outputs...")
+    print(f"{'='*60}")
+    
+    start_time = time.time()
+    
+    # Generate explanations for both outputs at once
+    explanations = explain_both_outputs(
+        model=model,
+        image_tensor=test_image,
+        test_tabular=test_tabular,
+        bg_tabular=bg_tabular,
+        tabular_feature_names=tabular_feature_names,
+        max_bg_samples=10,  # Use only 10 background samples for speed
+        nsamples=50  # Use 50 SHAP samples (increase for more accuracy)
+    )
+    
+    elapsed = time.time() - start_time
+    print(f"\n✓ SHAP computation completed in {elapsed:.2f} seconds")
+    
+    for output_label, exp in explanations.items():
+        print(f"  - {output_label}: SHAP values shape {exp.tabular_shap_values.shape}")
+    
+    # Create waterfall plots
+    print(f"\nGenerating SHAP waterfall plots...")
+    saved_paths = create_shap_waterfall_plots(
+        explanations=explanations,
+        test_tabular=test_tabular,
+        tabular_feature_names=tabular_feature_names
+    )
+    
+    for output_label, path in saved_paths.items():
+        print(f"  ✓ Saved {output_label} waterfall plot to {path}")
         
     print(f"\n{'='*60}")
     print("All SHAP explanations completed successfully!")
@@ -82,7 +74,8 @@ def test_explain_with_tabular():
 
 
 def test_explain_with_image():
-    from explain import explain_with_image
+    """Test Image Explainability (Grad-CAM) using fused module"""
+    from explain import explain_both_outputs
     from models import FusedModel
     
     print("\n" + "="*60)
@@ -94,62 +87,68 @@ def test_explain_with_image():
     model = FusedModel(num_tabular_features=num_tabular_features)
     model.eval()
     
-    # Create a sample image tensor (batch_size=1, channels=3, height=224, width=224)
-    # ResNet-18 expects 224x224 images
+    # Generate test data
     image_tensor = torch.randn(1, 3, 224, 224)
+    test_tabular = torch.randn(num_tabular_features)
+    bg_tabular = torch.randn(100, num_tabular_features)
     
-    # Test explanation for both output indices (1-year and 3-year risk)
-    for target_output_index in [0, 1]:
-        print(f"\nGenerating Grad-CAM explanation for output {target_output_index}...")
-        
-        grayscale_cam, visualization = explain_with_image(
-            model=model,
-            image_tensor=image_tensor,
-            target_output_index=target_output_index
-        )
-        
-        print(f"Grayscale CAM shape: {grayscale_cam.shape}")
-        print(f"Visualization shape: {visualization.shape}")
+    print("\nGenerating Grad-CAM explanations for both outputs...")
+    
+    # Generate explanations for both outputs
+    explanations = explain_both_outputs(
+        model=model,
+        image_tensor=image_tensor,
+        test_tabular=test_tabular,
+        bg_tabular=bg_tabular,
+        max_bg_samples=10,
+        nsamples=50
+    )
+    
+    # Create visualizations for each output
+    for output_label, exp in explanations.items():
+        print(f"\nProcessing {output_label} risk...")
+        print(f"  Grayscale CAM shape: {exp.grayscale_cam.shape}")
+        print(f"  Visualization shape: {exp.visualization.shape}")
         
         # Display the visualization
         plt.figure(figsize=(15, 5))
         
         # Original image
         plt.subplot(1, 3, 1)
-        # Convert tensor to numpy and transpose for display
         original_img = image_tensor[0].permute(1, 2, 0).detach().cpu().numpy()
-        # Normalize to 0-1 range for display
         original_img = (original_img - original_img.min()) / (original_img.max() - original_img.min())
         plt.imshow(original_img)
         plt.title('Original Image')
         plt.axis('off')
         
         plt.subplot(1, 3, 2)
-        plt.imshow(grayscale_cam, cmap='jet')
-        plt.title(f'Grad-CAM Heatmap (Output {target_output_index})')
+        plt.imshow(exp.grayscale_cam, cmap='jet')
+        plt.title(f'Grad-CAM Heatmap ({output_label})')
         plt.colorbar()
         plt.axis('off')
         
         plt.subplot(1, 3, 3)
-        plt.imshow(visualization)
-        plt.title(f'Overlay Visualization (Output {target_output_index})')
+        plt.imshow(exp.visualization)
+        plt.title(f'Overlay Visualization ({output_label})')
         plt.axis('off')
         
         plt.tight_layout()
-        plt.savefig(f'gradcam_output_{target_output_index}.png')
-        print(f"Saved visualization to gradcam_output_{target_output_index}.png")
+        save_path = f'gradcam_{output_label}_risk.png'
+        plt.savefig(save_path)
+        print(f"  ✓ Saved visualization to {save_path}")
         plt.close()
     
     print("\nTest completed successfully!")
 
 
 def test_explain_combined():
-    """Test combined explainability for both image and tabular data"""
-    from explain.tabular import (
-        explain_with_shap,
-        plot_shap_waterfall
+    """Test combined explainability for both image and tabular data using fused module"""
+    from explain import (
+        explain_both_outputs,
+        create_shap_waterfall_plots,
+        summarize_prediction,
+        visualize_combined_explanation
     )
-    from explain import explain_with_image
     from models import FusedModel
     
     print("\n" + "="*60)
@@ -162,12 +161,9 @@ def test_explain_combined():
     model.eval()
     
     # Generate background data for SHAP
-    print("Generating background data for SHAP...")
+    print("Generating test data...")
     bg_tabular = torch.randn(100, num_tabular_features)
-    
-    # Generate test data
-    print("Generating test image and tabular data...")
-    test_image = torch.randn(1, 3, 224, 224)  # Batch format for image
+    test_image = torch.randn(1, 3, 224, 224)
     test_tabular = torch.randn(num_tabular_features)
     
     # Define feature names for better visualization
@@ -176,146 +172,89 @@ def test_explain_combined():
         "Heart_Rate", "Exercise_Hours", "Sleep_Hours", "Stress_Level", "Diet_Score"
     ]
     
-    # Store explanations for both outputs
-    explanations = {}
+    print(f"\n{'='*60}")
+    print(f"Generating comprehensive explanations for both outputs...")
+    print(f"{'='*60}")
     
-    # Generate explanations for both output indices
-    for target_output_index in [0, 1]:
-        output_label = "1-year" if target_output_index == 0 else "3-year"
+    start_time = time.time()
+    
+    # Generate all explanations at once
+    explanations = explain_both_outputs(
+        model=model,
+        image_tensor=test_image,
+        test_tabular=test_tabular,
+        bg_tabular=bg_tabular,
+        tabular_feature_names=tabular_feature_names,
+        max_bg_samples=10,
+        nsamples=50
+    )
+    
+    elapsed = time.time() - start_time
+    print(f"\n✓ All explanations completed in {elapsed:.2f} seconds")
+    
+    # Print prediction summaries
+    for output_label, exp in explanations.items():
         print(f"\n{'='*60}")
-        print(f"Generating explanations for {output_label} risk prediction...")
+        print(f"{output_label.upper()} Risk Prediction Summary")
         print(f"{'='*60}")
         
-        # 1. Image Explainability (Grad-CAM)
-        print(f"\n1. Generating Grad-CAM for image data ({output_label} risk)...")
-        start_time = time.time()
-        
-        grayscale_cam, visualization = explain_with_image(
-            model=model,
-            image_tensor=test_image,
-            target_output_index=target_output_index
-        )
-        
-        elapsed = time.time() - start_time
-        print(f"✓ Grad-CAM completed in {elapsed:.2f} seconds")
-        
-        # 2. Tabular Explainability (SHAP)
-        print(f"\n2. Generating SHAP for tabular data ({output_label} risk)...")
-        start_time = time.time()
-        
-        tabular_shap_values, explainer = explain_with_shap(
-            model=model,
-            bg_tabular=bg_tabular,
-            image_tensor=test_image[0],  # Remove batch dimension for SHAP
+        summary = summarize_prediction(
+            explanation=exp,
             test_tabular=test_tabular,
-            target_output_index=target_output_index,
             tabular_feature_names=tabular_feature_names,
-            max_bg_samples=10,
-            nsamples=50
+            top_k=3
         )
         
-        elapsed = time.time() - start_time
-        print(f"✓ SHAP completed in {elapsed:.2f} seconds")
+        print(f"Risk Score: {summary['risk_score']:.4f}")
+        print(f"Risk Probability: {summary['risk_percentage']:.2f}%")
+        print(f"\nTop {len(summary['top_features'])} Contributing Tabular Features:")
         
-        # Generate SHAP waterfall plot separately
+        for i, feature in enumerate(summary['top_features'], 1):
+            print(f"  {i}. {feature['feature_name']}: {feature['feature_value']:.3f} "
+                  f"(SHAP: {feature['shap_value']:+.4f}, {feature['impact']} risk)")
+    
+    # Create SHAP waterfall plots
+    print(f"\n{'='*60}")
+    print("Creating SHAP waterfall plots...")
+    print(f"{'='*60}")
+    
+    waterfall_paths = create_shap_waterfall_plots(
+        explanations=explanations,
+        test_tabular=test_tabular,
+        tabular_feature_names=tabular_feature_names
+    )
+    
+    for output_label, path in waterfall_paths.items():
+        print(f"✓ Saved {output_label} waterfall to {path}")
+    
+    # Create combined visualization
+    print(f"\n{'='*60}")
+    print("Creating combined visualization...")
+    print(f"{'='*60}")
+    
+    # Create temporary waterfall plots for visualization
+    for output_label, exp in explanations.items():
+        from explain.tabular import plot_shap_waterfall
         plot_shap_waterfall(
-            explainer=explainer,
-            tabular_shap_values=tabular_shap_values,
+            explainer=exp.explainer,
+            tabular_shap_values=exp.tabular_shap_values,
             test_tabular=test_tabular,
-            target_output_index=target_output_index,
+            target_output_index=exp.target_output_index,
             tabular_feature_names=tabular_feature_names,
             save_path=f'temp_shap_waterfall_{output_label}.png',
             show=False
         )
-        
-        # Store explanation data
-        explanations[output_label] = {
-            'visualization': visualization,
-            'tabular_shap_values': tabular_shap_values,
-            'explainer': explainer
-        }
-        
-        # Print model prediction with explanations
-        print(f"\n3. Model Prediction Summary ({output_label} risk):")
-        with torch.no_grad():
-            # Get model prediction
-            prediction = model(test_image, test_tabular.unsqueeze(0))
-            risk_score = prediction[0, target_output_index].item()
-            print(f"   Risk Score: {risk_score:.4f}")
-            print(f"   Risk Probability: {torch.sigmoid(prediction[0, target_output_index]).item()*100:.2f}%")
-        
-        # Top contributing tabular features
-        shap_abs = np.abs(tabular_shap_values[0])  # Get first sample
-        top_k = 3
-        top_indices = np.argsort(shap_abs)[::-1][:top_k]
-        
-        print(f"\n   Top {top_k} Contributing Tabular Features:")
-        for i, idx in enumerate(top_indices, 1):
-            feature_name = tabular_feature_names[idx]
-            shap_val = tabular_shap_values[0, idx]  # Access from 2D array
-            feature_val = test_tabular[idx].item()
-            impact = "increases" if shap_val > 0 else "decreases"
-            print(f"   {i}. {feature_name}: {feature_val:.3f} (SHAP: {shap_val:+.4f}, {impact} risk)")
     
-    # Create combined 3-row visualization
-    print(f"\n{'='*60}")
-    print("Creating combined visualization (3 rows: original, 1-year, 3-year)...")
-    print(f"{'='*60}")
+    combined_path = visualize_combined_explanation(
+        image_tensor=test_image,
+        explanations=explanations,
+        tabular_feature_names=tabular_feature_names,
+        save_path='combined_explanation_both_risks.png',
+        dpi=150
+    )
     
-    fig = plt.figure(figsize=(16, 15))
+    print(f"✓ Saved combined visualization to {combined_path}")
     
-    # Prepare original image once
-    original_img = test_image[0].permute(1, 2, 0).detach().cpu().numpy()
-    original_img = (original_img - original_img.min()) / (original_img.max() - original_img.min())
-    
-    # Row 1: Original image (centered, spanning 2 columns)
-    ax1 = plt.subplot(3, 2, (1, 2))
-    plt.imshow(original_img)
-    plt.title('Original Medical Image', fontsize=14, fontweight='bold', pad=20)
-    plt.axis('off')
-    
-    # Row 2: 1-year risk explanations
-    # Grad-CAM visualization
-    ax2 = plt.subplot(3, 2, 3)
-    plt.imshow(explanations['1-year']['visualization'])
-    plt.title('1-Year Risk\nGrad-CAM (Image Contribution)', fontsize=12, fontweight='bold')
-    plt.axis('off')
-    
-    # SHAP waterfall plot
-    ax3 = plt.subplot(3, 2, 4)
-    if os.path.exists('temp_shap_waterfall_1-year.png'):
-        shap_img = plt.imread('temp_shap_waterfall_1-year.png')
-        plt.imshow(shap_img)
-        plt.axis('off')
-        plt.title('1-Year Risk\nSHAP (Tabular Features)', fontsize=12, fontweight='bold')
-    
-    # Row 3: 3-year risk explanations
-    # Grad-CAM visualization
-    ax4 = plt.subplot(3, 2, 5)
-    plt.imshow(explanations['3-year']['visualization'])
-    plt.title('3-Year Risk\nGrad-CAM (Image Contribution)', fontsize=12, fontweight='bold')
-    plt.axis('off')
-    
-    # SHAP waterfall plot
-    ax5 = plt.subplot(3, 2, 6)
-    if os.path.exists('temp_shap_waterfall_3-year.png'):
-        shap_img = plt.imread('temp_shap_waterfall_3-year.png')
-        plt.imshow(shap_img)
-        plt.axis('off')
-        plt.title('3-Year Risk\nSHAP (Tabular Features)', fontsize=12, fontweight='bold')
-    
-    plt.tight_layout()
-    save_path = 'combined_explanation_both_risks.png'
-    plt.savefig(save_path, dpi=150, bbox_inches='tight')
-    print(f"✓ Saved combined visualization to {save_path}")
-    plt.close()
-    
-    # Clean up temporary files
-    for output_label in ['1-year', '3-year']:
-        temp_file = f'temp_shap_waterfall_{output_label}.png'
-        if os.path.exists(temp_file):
-            os.remove(temp_file)
-        
     print(f"\n{'='*60}")
     print("Combined explainability test completed successfully!")
     print(f"{'='*60}")
