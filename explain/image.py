@@ -15,7 +15,6 @@ def explain_with_image(model: FusedModel, image_tensor: torch.Tensor, target_out
     Args:
         model (FusedModel): The fused model to explain.
         image_tensor (torch.Tensor): The input image tensor.
-        tabular_tensor (torch.Tensor): The input tabular tensor.
         target_output_index (int): The index of the output neuron to explain (0 or 1).
     
     Returns:

@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple, Union
 from models import FusedModel
 
 
-def explain_with_shap_fast(
+def explain_with_shap(
     model: FusedModel,
     bg_tabular: torch.Tensor,
     test_images: torch.Tensor,
@@ -86,108 +86,6 @@ def explain_with_shap_fast(
     print(f"Computing SHAP values with {nsamples} samples per explanation...")
     tabular_shap_values = explainer.shap_values(test_tabular_np, nsamples=nsamples, silent=False)
     
-    if isinstance(tabular_shap_values, torch.Tensor):
-        tabular_shap_values = tabular_shap_values.detach().cpu().numpy()
-    
-    return tabular_shap_values, explainer
-
-
-def explain_with_shap(
-    model: FusedModel,
-    bg_images: torch.Tensor,
-    bg_tabular: torch.Tensor,
-    test_images: torch.Tensor,
-    test_tabular: torch.Tensor,
-    target_output_index: int = 0,
-    tabular_feature_names: Optional[List[str]] = None,
-    max_bg_samples: int = 20,
-    batch_size: int = 10
-) -> Tuple[np.ndarray, shap.Explainer]:
-    """
-    Explain the fused model's prediction using SHAP for tabular features.
-    
-    PERFORMANCE OPTIMIZATIONS:
-    - Reduced default background samples from 100 to 20 for much faster computation
-    - Uses KernelExplainer on tabular-only wrapper to avoid gradient computation through image model
-    - Processes explanations in batches to manage memory
-    
-    Args:
-        model (FusedModel): The fused model to explain.
-        bg_images (torch.Tensor): Background image data for SHAP.
-                                  Shape: (num_bg_samples, 3, 224, 224)
-        bg_tabular (torch.Tensor): Background tabular data for SHAP.
-                                   Shape: (num_bg_samples, num_features)
-        test_images (torch.Tensor): Test image data to explain.
-                                    Shape: (num_test_samples, 3, 224, 224)
-        test_tabular (torch.Tensor): Test tabular data to explain.
-                                     Shape: (num_test_samples, num_features)
-        target_output_index (int): The index of the output neuron to explain (0 for 1-year, 1 for 3-year).
-        tabular_feature_names (List[str], optional): Names of the tabular features for plotting.
-        max_bg_samples (int): Maximum background samples to use (default: 20 for speed).
-        batch_size (int): Batch size for processing test samples (default: 10).
-    
-    Returns:
-        tabular_shap_values (np.ndarray): SHAP values for the tabular features.
-                                         Shape: (num_test_samples, num_features)
-        explainer (shap.Explainer): The SHAP explainer object for further use.
-    """
-    
-    assert target_output_index in [0, 1], "target_output_index must be 0 or 1"
-    
-    model.eval()
-    
-    # Ensure all tensors are on the same device as the model
-    device = next(model.parameters()).device
-    bg_images = bg_images.to(device)
-    bg_tabular = bg_tabular.to(device)
-    test_images = test_images.to(device)
-    test_tabular = test_tabular.to(device)
-    
-    # Reduce background samples for speed
-    if bg_images.shape[0] > max_bg_samples:
-        bg_images = bg_images[:max_bg_samples]
-        bg_tabular = bg_tabular[:max_bg_samples]
-    
-    # Create a wrapper that fixes the image input and only varies tabular input
-    # This allows us to use faster KernelExplainer instead of GradientExplainer
-    class TabularOnlyWrapper:
-        def __init__(self, model, images, target_idx):
-            self.model = model
-            self.images = images
-            self.target_idx = target_idx
-            
-        def __call__(self, tabular_data):
-            # tabular_data comes in as numpy array from SHAP
-            if isinstance(tabular_data, np.ndarray):
-                tabular_tensor = torch.tensor(tabular_data, dtype=torch.float32, device=self.images.device)
-            else:
-                tabular_tensor = tabular_data
-            
-            # Expand images to match batch size
-            batch_size = tabular_tensor.shape[0]
-            images_batch = self.images[:batch_size] if self.images.shape[0] >= batch_size else self.images[0:1].expand(batch_size, -1, -1, -1)
-            
-            with torch.no_grad():
-                outputs = self.model(images_batch, tabular_tensor)
-                # Return only the target output column
-                return outputs[:, self.target_idx].detach().cpu().numpy()
-    
-    # Use the mean image from test set as the fixed image input
-    mean_test_image = test_images.mean(dim=0, keepdim=True)
-    wrapper = TabularOnlyWrapper(model, mean_test_image, target_output_index)
-    
-    # Convert to numpy for KernelExplainer
-    bg_tabular_np = bg_tabular.detach().cpu().numpy()
-    test_tabular_np = test_tabular.detach().cpu().numpy()
-    
-    # Use KernelExplainer which is much faster for tabular data
-    explainer = shap.KernelExplainer(wrapper, bg_tabular_np)
-    
-    # Calculate SHAP values with reduced samples for speed
-    # nsamples='auto' uses heuristics, but we can specify a smaller number for speed
-    tabular_shap_values = explainer.shap_values(test_tabular_np, nsamples=100)
-    
-    # Convert to numpy if it's still a tensor
     if isinstance(tabular_shap_values, torch.Tensor):
         tabular_shap_values = tabular_shap_values.detach().cpu().numpy()
     
