@@ -4,9 +4,24 @@ from typing import List
 
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
 from models import FusedModel
-from .gradcam import GradCamModelWrapper, ClassifierOutputTarget
+
+
+class GradCamModelWrapper(nn.Module):
+    """
+    A wrapper for the fused model to make it compatible
+    with the single-input grad-cam library.
+    """
+    def __init__(self, fused_model, dummy_tabular_tensor):
+        super().__init__()
+        self.model = fused_model
+        self.dummy_tabular = dummy_tabular_tensor
+
+    def forward(self, image_tensor):
+        return self.model(image_tensor, self.dummy_tabular)
+
 
 def explain_with_image(model: FusedModel, image_tensor: torch.Tensor, target_output_index: int):
     """
@@ -30,7 +45,7 @@ def explain_with_image(model: FusedModel, image_tensor: torch.Tensor, target_out
     target_layer = [wrapped_model.model.image_branch.model.layer4[-1]]
     
     cam = GradCAM(model=wrapped_model, target_layers=target_layer)
-    targets: List[nn.Module] = [ClassifierOutputTarget(output_index=target_output_index)]
+    targets = [ClassifierOutputTarget(category=target_output_index)]
     
     grayscale_cam = cam(input_tensor=image_tensor, targets=targets)
     grayscale_cam = grayscale_cam[0, :]
